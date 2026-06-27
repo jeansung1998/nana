@@ -146,7 +146,6 @@ def twiml():
 
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say language="ko-KR">{intro}</Say>
   <Connect>
     <Stream url="{ws_url}/stream?id={call_id}"/>
   </Connect>
