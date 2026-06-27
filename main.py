@@ -69,6 +69,7 @@ def ask_claude(user_text, system_prompt):
         messages=[{"role": "user", "content": user_text}]
     )
     return message.content[0].text
+
 @app.route("/health", methods=["GET"])
 def health():
     return {"status": "ok", "service": "NANA AI"}
