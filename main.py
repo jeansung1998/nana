@@ -140,22 +140,12 @@ def audio():
 def twiml():
     call_id = request.args.get("id", "")
     data = call_scripts.get(call_id, {})
-    audio_ids = data.get("audio_ids", [])
-    ws_url = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://')
-
-    play_tags = ""
-    for audio_id in audio_ids:
-        if audio_id in audio_cache:
-            play_tags += f'  <Play>{BASE_URL}/audio?id={audio_id}</Play>\n'
-
-    if not play_tags:
-        play_tags = '  <Say language="ko-KR">안녕하세요. 나나입니다.</Say>\n'
+    intro = data.get("intro", "안녕하세요. 나나입니다.")
 
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-{play_tags}  <Connect>
-    <Stream url="{ws_url}/stream?id={call_id}"/>
-  </Connect>
+  <Say language="ko-KR">{intro}</Say>
+  <Hangup/>
 </Response>"""
     return Response(xml, mimetype="text/xml")
 
