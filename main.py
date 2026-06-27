@@ -175,7 +175,7 @@ def stream(ws):
 
     while True:
         try:
-            msg = ws.receive()
+            msg = ws.receive(timeout=0.1)
             if msg is None:
                 break
         except Exception:
