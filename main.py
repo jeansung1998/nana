@@ -164,7 +164,6 @@ def stream(ws):
                     try:
                         ws.send(json.dumps({
                             "event": "media",
-                            "streamSid": stream_sid,
                             "media": {"payload": payload}
                         }))
                         print("🔊 TTS 전송 완료")
