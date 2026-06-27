@@ -1,4 +1,5 @@
 import os
+import threading
 import asyncio
 from flask import Flask, request, jsonify
 from clawops.agent import ClawOpsAgent, OpenAIRealtime
@@ -38,11 +39,13 @@ def make_call():
 사용자가 요청한 용건: {user_request}
 짧고 자연스럽게 대화하세요. 용건을 처리하면 통화를 종료하세요."""
 
-    async def run_call():
+    def run_call():
         agent = create_agent(system_prompt)
-        await agent.call(to)
+        asyncio.run(agent.call(to))
 
-    asyncio.run(run_call())
+    thread = threading.Thread(target=run_call)
+    thread.daemon = True
+    thread.start()
     return {"status": "initiated"}
 
 if __name__ == "__main__":
