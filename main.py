@@ -195,15 +195,18 @@ def stream(ws):
                         tts_audio = generate_tts_bytes(response_text)
                         if tts_audio and stream_sid:
                             payload = base64.b64encode(tts_audio).decode("utf-8")
-                            ws.send(json.dumps({
-                                "event": "media",
-                                "streamSid": stream_sid,
-                                "media": {"payload": payload}
-                            }))
-                            print("🔊 TTS 전송 완료")
+                            try:
+                                ws.send(json.dumps({
+                                    "event": "media",
+                                    "streamSid": stream_sid,
+                                    "media": {"payload": payload}
+                                }))
+                                print("🔊 TTS 전송 완료")
+                            except Exception as send_err:
+                                print(f"❌ TTS 전송 실패: {send_err}")
                 except Exception as e:
                     print(f"❌ 오류: {e}")
-            break
+            audio_buffer = bytearray()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
