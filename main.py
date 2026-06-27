@@ -1,9 +1,8 @@
 import os
-import threading
-import asyncio
 import re
 import json
 import base64
+import time
 import requests
 import anthropic
 from openai import OpenAI
@@ -143,6 +142,36 @@ def stream(ws):
 
     audio_buffer = bytearray()
     stream_sid = None
+    last_audio_time = None
+    SILENCE_THRESHOLD = 1.5
+
+    def process_and_respond():
+        nonlocal audio_buffer
+        if len(audio_buffer) < 3200:
+            audio_buffer = bytearray()
+            return
+        buf = bytes(audio_buffer)
+        audio_buffer = bytearray()
+        try:
+            text = stt(buf)
+            print(f"📝 STT: {text}")
+            if text.strip():
+                response_text = ask_claude(text, system_prompt)
+                print(f"🤖 Claude: {response_text}")
+                tts_audio = generate_tts_bytes(response_text)
+                if tts_audio and stream_sid:
+                    payload = base64.b64encode(tts_audio).decode("utf-8")
+                    try:
+                        ws.send(json.dumps({
+                            "event": "media",
+                            "streamSid": stream_sid,
+                            "media": {"payload": payload}
+                        }))
+                        print("🔊 TTS 전송 완료")
+                    except Exception as e:
+                        print(f"❌ TTS 전송 실패: {e}")
+        except Exception as e:
+            print(f"❌ 오류: {e}")
 
     while True:
         try:
@@ -164,31 +193,17 @@ def stream(ws):
         elif event.get("event") == "media":
             payload = event.get("media", {}).get("payload", "")
             audio_buffer.extend(base64.b64decode(payload))
+            last_audio_time = time.time()
 
         elif event.get("event") == "stop":
-            print(f"🛑 Stop. 버퍼: {len(audio_buffer)} bytes")
-            if len(audio_buffer) > 0:
-                try:
-                    text = stt(bytes(audio_buffer))
-                    print(f"📝 STT: {text}")
-                    if text.strip():
-                        response_text = ask_claude(text, system_prompt)
-                        print(f"🤖 Claude: {response_text}")
-                        tts_audio = generate_tts_bytes(response_text)
-                        if tts_audio and stream_sid:
-                            payload = base64.b64encode(tts_audio).decode("utf-8")
-                            try:
-                                ws.send(json.dumps({
-                                    "event": "media",
-                                    "streamSid": stream_sid,
-                                    "media": {"payload": payload}
-                                }))
-                                print("🔊 TTS 전송 완료")
-                            except Exception as send_err:
-                                print(f"❌ TTS 전송 실패: {send_err}")
-                except Exception as e:
-                    print(f"❌ 오류: {e}")
-            audio_buffer = bytearray()
+            print(f"🛑 Stop.")
+            process_and_respond()
+            break
+
+        if last_audio_time and time.time() - last_audio_time > SILENCE_THRESHOLD:
+            if len(audio_buffer) > 3200:
+                last_audio_time = None
+                process_and_respond()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
