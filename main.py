@@ -69,12 +69,15 @@ def ask_claude(user_text, system_prompt):
         messages=[{"role": "user", "content": user_text}]
     )
     return message.content[0].text
+@app.route("/health", methods=["GET"])
+def health():
+    return {"status": "ok", "service": "NANA AI"}
 
 @app.route("/call", methods=["POST"])
 def make_call():
     data = request.json
     to = data.get("to", "").replace("-", "").replace("+82", "0")
-    script = data.get("script", "안녕하세요. 나나입니다.")
+    script = data.get("script") or data.get("request", "안녕하세요. 나나입니다.")
     system_prompt = data.get("system_prompt", "당신은 친절한 AI 전화 대리 서비스입니다. 짧고 자연스럽게 대화하세요.")
 
     call_id = str(uuid.uuid4())[:8]
