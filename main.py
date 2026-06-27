@@ -193,10 +193,11 @@ def stream(ws):
             payload = event.get("media", {}).get("payload", "")
             audio_buffer.extend(base64.b64decode(payload))
             last_audio_time = time.time()
+            import gevent
+            gevent.sleep(0)
 
         elif event.get("event") == "stop":
             print(f"🛑 Stop.")
-            process_and_respond()
             break
 
         if last_audio_time and time.time() - last_audio_time > SILENCE_THRESHOLD:
