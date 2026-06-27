@@ -5,6 +5,7 @@ import uuid
 import requests
 import json
 import base64
+import re
 import anthropic
 from openai import OpenAI
 from clawops import ClawOps
@@ -25,6 +26,30 @@ ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY", "")
 VOICE_ID = "onwK4e9ZLuTAKqWW03F9"
 
 call_scripts = {}
+audio_cache = {}
+
+def split_sentences(text):
+    sentences = re.split(r'(?<=[.!?。]) +', text.strip())
+    return [s for s in sentences if s]
+
+def generate_tts(text, audio_id):
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+    headers = {
+        "xi-api-key": ELEVENLABS_API_KEY,
+        "Content-Type": "application/json"
+    }
+    body = {
+        "text": text,
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
+    }
+    response = requests.post(url, headers=headers, json=body)
+    if response.status_code == 200:
+        audio_cache[audio_id] = response.content
+        print(f"✅ TTS 생성: {audio_id}")
+        return True
+    print(f"❌ ElevenLabs 실패: {response.status_code} {response.text}")
+    return False
 
 def generate_tts_bytes(text):
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
@@ -41,7 +66,7 @@ def generate_tts_bytes(text):
     response = requests.post(url, headers=headers, json=body)
     if response.status_code == 200:
         return response.content
-    print(f"ElevenLabs 오류: {response.status_code} {response.text}")
+    print(f"❌ ElevenLabs 실패: {response.status_code} {response.text}")
     return None
 
 def stt(audio_bytes):
@@ -82,8 +107,16 @@ def make_call():
     system_prompt = data.get("system_prompt", "당신은 친절한 AI 전화 대리 서비스입니다. 짧고 자연스럽게 대화하세요.")
 
     call_id = str(uuid.uuid4())[:8]
+    sentences = split_sentences(script)
+
+    audio_ids = []
+    for i, sentence in enumerate(sentences):
+        audio_id = f"{call_id}_{i}"
+        if generate_tts(sentence, audio_id):
+            audio_ids.append(audio_id)
+
     call_scripts[call_id] = {
-        "intro": script,
+        "audio_ids": audio_ids,
         "system_prompt": system_prompt
     }
 
@@ -95,17 +128,32 @@ def make_call():
     )
     return {"call_id": call.call_id, "status": "initiated"}
 
+@app.route("/audio", methods=["GET"])
+def audio():
+    audio_id = request.args.get("id", "")
+    if audio_id in audio_cache:
+        data = audio_cache[audio_id]
+        return Response(data, mimetype="audio/mpeg", headers={"Content-Length": len(data)})
+    return "Not found", 404
+
 @app.route("/twiml", methods=["GET", "POST"])
 def twiml():
     call_id = request.args.get("id", "")
     data = call_scripts.get(call_id, {})
-    intro = data.get("intro", "안녕하세요. 나나입니다.")
+    audio_ids = data.get("audio_ids", [])
     ws_url = BASE_URL.replace('https://', 'wss://').replace('http://', 'ws://')
+
+    play_tags = ""
+    for audio_id in audio_ids:
+        if audio_id in audio_cache:
+            play_tags += f'  <Play>{BASE_URL}/audio?id={audio_id}</Play>\n'
+
+    if not play_tags:
+        play_tags = '  <Say language="ko-KR">안녕하세요. 나나입니다.</Say>\n'
 
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say language="ko-KR">{intro}</Say>
-  <Connect>
+{play_tags}  <Connect>
     <Stream url="{ws_url}/stream?id={call_id}"/>
   </Connect>
 </Response>"""
