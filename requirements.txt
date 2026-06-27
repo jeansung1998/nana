@@ -1,9 +1,4 @@
 flask
-flask_sock
-clawops
+clawops[agent,openai]
 requests
 gunicorn
-gevent
-gevent-websocket
-anthropic
-openai
