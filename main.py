@@ -52,6 +52,8 @@ def make_call():
     call = clawops_client.calls.create(
         to=to,
         from_=CLAWOPS_FROM,
+        url=f"{BASE_URL}/twiml?id={to}",
+        timeout=120,
     )
     return {"call_id": call.call_id, "status": "initiated"}
 
