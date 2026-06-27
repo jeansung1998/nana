@@ -40,9 +40,12 @@ def make_call():
 짧고 자연스럽게 대화하세요. 용건을 처리하면 통화를 종료하세요."""
 
     def run_call():
-        agent = create_agent(system_prompt)
-        asyncio.run(agent.call(to))
-
+        try:
+            agent = create_agent(system_prompt)
+            asyncio.run(agent.call(to))
+        except Exception as e:
+            print(f"❌ agent.call 오류: {e}")
+            
     thread = threading.Thread(target=run_call)
     thread.daemon = True
     thread.start()
